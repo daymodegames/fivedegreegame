@@ -236,16 +236,30 @@ export default function App() {
         <div className="list-section">
           <p className="list-hint">Pick an actor to jump through</p>
           <div className="item-list">
+            
             {cast.map((actor) => (
-              <button
-                key={actor.id}
-                className={`item-btn ${usedActorIds.has(actor.id) ? "used" : ""}`}
-                onClick={() => pickActor(actor)}
-                disabled={usedActorIds.has(actor.id)}
-              >
-                {actor.name}
-                <span className="item-sub">{actor.character}</span>
-              </button>
+         <button
+    key={actor.id}
+    className={`item-btn ${usedActorIds.has(actor.id) ? "used" : ""}`}
+    onClick={() => pickActor(actor)}
+    disabled={usedActorIds.has(actor.id)}
+  >
+    {actor.profile_path ? (
+      <img
+        className="actor-photo"
+        src={`https://image.tmdb.org/t/p/w185${actor.profile_path}`}
+        alt={actor.name}
+      />
+    ) : (
+      <div className="actor-placeholder">
+        {actor.name.charAt(0)}
+      </div>
+    )}
+    <div className="item-info">
+      <span className="item-name">{actor.name}</span>
+      <span className="item-sub">{actor.character}</span>
+    </div>
+  </button>
             ))}
           </div>
         </div>
@@ -259,15 +273,26 @@ export default function App() {
           </p>
           <div className="item-list">
             {actorMovies.map((movie) => (
-              <button
-                key={movie.id}
-                className={`item-btn ${usedMovieIds.has(movie.id) ? "used" : ""} ${movie.id === DAILY_PUZZLE.movieB.id ? "target" : ""}`}
-                onClick={() => pickMovie(movie)}
-                disabled={usedMovieIds.has(movie.id)}
-              >
-                {movie.title}
-                <span className="item-sub">{movie.release_date?.slice(0, 4)}</span>
-              </button>
+                <button
+    key={movie.id}
+    className={`item-btn ${usedMovieIds.has(movie.id) ? "used" : ""} ${movie.id === DAILY_PUZZLE.movieB.id ? "target" : ""}`}
+    onClick={() => pickMovie(movie)}
+    disabled={usedMovieIds.has(movie.id)}
+  >
+    {movie.poster_path ? (
+      <img
+        className="movie-thumb"
+        src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
+        alt={movie.title}
+      />
+    ) : (
+      <div className="movie-thumb-placeholder">🎬</div>
+    )}
+    <div className="item-info">
+      <span className="item-name">{movie.title}</span>
+      <span className="item-sub">{movie.release_date?.slice(0, 4)}</span>
+    </div>
+  </button>
             ))}
           </div>
         </div>
