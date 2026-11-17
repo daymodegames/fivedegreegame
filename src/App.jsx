@@ -1,15 +1,14 @@
 import { useState, useEffect } from "react";
 import "./App.css";
+import "./share.css";
+import { getDailyPuzzle } from "./puzzles";
 
 const API_KEY = import.meta.env.VITE_TMDB_CONNECTION;
 const BASE_URL = "https://api.themoviedb.org/3";
 const IMG_URL = "https://image.tmdb.org/t/p/w300";
 
-// Daily puzzle — swap these out each day
-const DAILY_PUZZLE = {
-  movieA: { id: 238, title: "The Godfather" },
-  movieB: { id: 99861, title: "Avengers: Age of Ultron" },
-};
+// Today's puzzle — same pair for every player, changes at midnight UTC
+const DAILY_PUZZLE = getDailyPuzzle();
 
 const MAX_HOPS = 10;
 
@@ -38,6 +37,55 @@ async function fetchMoviePoster(movieId) {
   );
   const data = await res.json();
   return data.poster_path;
+}
+
+// ─── Share result (Wordle-style) ─────────────────────────────────────
+function buildShareText(chain, hops, didWin) {
+  const steps = chain
+    .map((step) => (step.type === "movie" ? "🎬" : "👤"))
+    .join("");
+  const result = didWin ? `${hops}/${MAX_HOPS} hops` : `X/${MAX_HOPS} hops`;
+  return [
+    `Five Degrees #${DAILY_PUZZLE.number} — ${result}`,
+    steps,
+    `Can you connect them? ${DAILY_PUZZLE.siteUrl}`,
+  ].join("\n");
+}
+
+function ShareButtons({ text }) {
+  const [copied, setCopied] = useState(false);
+  const canNativeShare = typeof navigator !== "undefined" && !!navigator.share;
+
+  async function copyResult() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard unavailable — do nothing
+    }
+  }
+
+  async function nativeShare() {
+    try {
+      await navigator.share({ text });
+    } catch {
+      // user cancelled — do nothing
+    }
+  }
+
+  return (
+    <div className="share-row">
+      {canNativeShare && (
+        <button className="share-btn" onClick={nativeShare}>
+          Share
+        </button>
+      )}
+      <button className="share-btn" onClick={copyResult}>
+        {copied ? "Copied!" : "Copy result"}
+      </button>
+    </div>
+  );
 }
 
 export default function App() {
@@ -135,12 +183,12 @@ export default function App() {
     setActorMovies([]);
   }
 
-  // ─── TITLE SCREEN ───────────────────────────────────────────────
+  // ─── TITLE SCREEN ────────────────────────────────────────────────
   if (screen === "title") {
     return (
       <div className="app title-screen">
         <h1 className="game-title">Five Degrees</h1>
-        <p className="subtitle">Find the connection.</p>
+        <p className="subtitle">Daily Puzzle #{DAILY_PUZZLE.number}</p>
 
         <div className="movie-pair">
           <div className="movie-card">
@@ -177,6 +225,7 @@ export default function App() {
       <div className="app result-screen win">
         <h1>You did it!</h1>
         <p className="result-hops">Connected in <strong>{hops}</strong> hop{hops !== 1 ? "s" : ""}.</p>
+        <ShareButtons text={buildShareText(chain, hops, true)} />
         <div className="chain-log">
           {chain.map((step, i) => (
             <div key={i} className={`chain-step ${step.type}`}>
@@ -195,6 +244,7 @@ export default function App() {
       <div className="app result-screen lose">
         <h1>So close...</h1>
         <p className="result-hops">You used all {MAX_HOPS} hops.</p>
+        <ShareButtons text={buildShareText(chain, hops, false)} />
         <div className="chain-log">
           {chain.map((step, i) => (
             <div key={i} className={`chain-step ${step.type}`}>
@@ -236,30 +286,29 @@ export default function App() {
         <div className="list-section">
           <p className="list-hint">Pick an actor to jump through</p>
           <div className="item-list">
-            
             {cast.map((actor) => (
-         <button
-    key={actor.id}
-    className={`item-btn ${usedActorIds.has(actor.id) ? "used" : ""}`}
-    onClick={() => pickActor(actor)}
-    disabled={usedActorIds.has(actor.id)}
-  >
-    {actor.profile_path ? (
-      <img
-        className="actor-photo"
-        src={`https://image.tmdb.org/t/p/w185${actor.profile_path}`}
-        alt={actor.name}
-      />
-    ) : (
-      <div className="actor-placeholder">
-        {actor.name.charAt(0)}
-      </div>
-    )}
-    <div className="item-info">
-      <span className="item-name">{actor.name}</span>
-      <span className="item-sub">{actor.character}</span>
-    </div>
-  </button>
+              <button
+                key={actor.id}
+                className={`item-btn ${usedActorIds.has(actor.id) ? "used" : ""}`}
+                onClick={() => pickActor(actor)}
+                disabled={usedActorIds.has(actor.id)}
+              >
+                {actor.profile_path ? (
+                  <img
+                    className="actor-photo"
+                    src={`https://image.tmdb.org/t/p/w185${actor.profile_path}`}
+                    alt={actor.name}
+                  />
+                ) : (
+                  <div className="actor-placeholder">
+                    {actor.name.charAt(0)}
+                  </div>
+                )}
+                <div className="item-info">
+                  <span className="item-name">{actor.name}</span>
+                  <span className="item-sub">{actor.character}</span>
+                </div>
+              </button>
             ))}
           </div>
         </div>
@@ -273,26 +322,26 @@ export default function App() {
           </p>
           <div className="item-list">
             {actorMovies.map((movie) => (
-                <button
-    key={movie.id}
-    className={`item-btn ${usedMovieIds.has(movie.id) ? "used" : ""} ${movie.id === DAILY_PUZZLE.movieB.id ? "target" : ""}`}
-    onClick={() => pickMovie(movie)}
-    disabled={usedMovieIds.has(movie.id)}
-  >
-    {movie.poster_path ? (
-      <img
-        className="movie-thumb"
-        src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
-        alt={movie.title}
-      />
-    ) : (
-      <div className="movie-thumb-placeholder">🎬</div>
-    )}
-    <div className="item-info">
-      <span className="item-name">{movie.title}</span>
-      <span className="item-sub">{movie.release_date?.slice(0, 4)}</span>
-    </div>
-  </button>
+              <button
+                key={movie.id}
+                className={`item-btn ${usedMovieIds.has(movie.id) ? "used" : ""} ${movie.id === DAILY_PUZZLE.movieB.id ? "target" : ""}`}
+                onClick={() => pickMovie(movie)}
+                disabled={usedMovieIds.has(movie.id)}
+              >
+                {movie.poster_path ? (
+                  <img
+                    className="movie-thumb"
+                    src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
+                    alt={movie.title}
+                  />
+                ) : (
+                  <div className="movie-thumb-placeholder">🎬</div>
+                )}
+                <div className="item-info">
+                  <span className="item-name">{movie.title}</span>
+                  <span className="item-sub">{movie.release_date?.slice(0, 4)}</span>
+                </div>
+              </button>
             ))}
           </div>
         </div>
